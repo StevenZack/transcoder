@@ -112,7 +112,7 @@ func CreateTask(fh *multipart.FileHeader, user string) (*Task, error) {
 			log.Println(e)
 			return nil, e
 		}
-		w, h := ffmpegx.FitConstraint(ffmpegx.MAX_AV1_CONSTRAINT, ffmpegx.MAX_HEVC_CONSTRAINT, v.MediaInfo.Width, v.MediaInfo.Height)
+		w, h := ffmpegx.FitConstraint(ffmpegx.MAX_AV1_CONSTRAINT, ffmpegx.MAX_AV1_CONSTRAINT, v.MediaInfo.Width, v.MediaInfo.Height)
 		filename := fmt.Sprintf("%s@%dx%d", v.Id, w, h)
 		v.ProgressFile = filepath.Join(AppDir, filename+".progress.txt")
 		// cover

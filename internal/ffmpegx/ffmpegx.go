@@ -25,7 +25,7 @@ type (
 
 const (
 	// av1
-	MAX_AV1_CONSTRAINT = 256
+	MAX_AV1_CONSTRAINT = 400
 	// hevc
 	MAX_HEVC_CONSTRAINT = 640
 )
@@ -60,7 +60,8 @@ func CreateCoverOfVideo(dst, filename string, w, h int) error {
 ffmpeg -y -i a.mp4 -c:v libx265 -vf scale=640x360,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 a.hevc.mp4 -progress progress.txt
 */
 func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, wAV1, hAV1, wHEVC, hHEVC int) (**exec.Cmd, error) {
-	cmd := exec.Command("ffmpeg", "-y", "-i", originalFilename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wAV1, hAV1), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstAV1)
+	cmd := exec.Command("ffmpeg", "-y", "-i", originalFilename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wAV1, hAV1), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "48", "-b:v", "0", "-progress", progressFile, dstAV1)
+	log.Println(cmd.String())
 	fo := new(strings.Builder)
 	fe := new(strings.Builder)
 	cmd.Stderr = fe
@@ -79,8 +80,10 @@ func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, 
 		}
 
 		cmd = exec.Command(
-			"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstHEVC,
+			"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "36", "-b:v", "0", "-progress", progressFile, dstHEVC,
 		)
+		log.Println(cmd.String())
+
 		fo := new(strings.Builder)
 		fe := new(strings.Builder)
 		cmd.Stderr = fe
