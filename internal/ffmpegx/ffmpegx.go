@@ -59,15 +59,46 @@ func CreateCoverOfVideo(dst, filename string, w, h int) error {
 * ffmpeg -y -i a.mp4 -c:v libaom-av1 -vf scale=256x144,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 a.av1.mp4  -progress progress.txt &&
 ffmpeg -y -i a.mp4 -c:v libx265 -vf scale=640x360,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 a.hevc.mp4 -progress progress.txt
 */
-func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, wAV1, hAV1, wHEVC, hHEVC int) (*exec.Cmd, error) {
-	cmd := exec.Command("ffmpeg", "-y", "-i", originalFilename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wAV1, hAV1), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstAV1, "&&",
-		"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstHEVC,
-	)
+func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, wAV1, hAV1, wHEVC, hHEVC int) (**exec.Cmd, error) {
+	cmd := exec.Command("ffmpeg", "-y", "-i", originalFilename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wAV1, hAV1), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstAV1)
+	fo := new(strings.Builder)
+	fe := new(strings.Builder)
+	cmd.Stderr = fe
+	cmd.Stdout = fo
+
 	e := cmd.Start()
 	if e != nil {
 		return nil, e
 	}
-	return cmd, nil
+	go func() {
+		e := cmd.Wait()
+		if e != nil {
+			log.Println(e, cmd.String())
+			log.Println(fo.String() + fe.String())
+			return
+		}
+
+		cmd = exec.Command(
+			"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstHEVC,
+		)
+		fo := new(strings.Builder)
+		fe := new(strings.Builder)
+		cmd.Stderr = fe
+		cmd.Stdout = fo
+		e = cmd.Start()
+		if e != nil {
+			log.Println(e)
+			return
+		}
+
+		e = cmd.Wait()
+		if e != nil {
+			log.Println(e, cmd.String())
+			log.Println(fo.String() + fe.String())
+			return
+		}
+	}()
+	return &cmd, nil
 }
 
 // ffmpeg -i a.mp4 -c:v libx265 -vf scale=640x360,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 out.hevc.mp4

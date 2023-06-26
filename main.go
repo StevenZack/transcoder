@@ -51,7 +51,7 @@ func main() {
 	api.GET("tasks", getAllTasks)
 	api.DELETE("tasks/:id", deleteTask)
 
-	api.Static("files", core.AppDir)
+	r.Static("files", core.AppDir)
 
 	println("started on http://localhost:" + strconv.Itoa(*port))
 	e = r.Run(":" + strconv.Itoa(*port))

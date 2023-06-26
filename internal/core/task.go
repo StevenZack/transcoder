@@ -27,7 +27,7 @@ type (
 
 		MediaInfo    *ffmpegx.MediaInfo    `json:"media_info"`
 		ProgressInfo *ffmpegx.ProgressInfo `json:"progress_info"`
-		Cmd          *exec.Cmd             `json:"-"`
+		Cmd          **exec.Cmd            `json:"-"`
 		ProgressFile string                `json:"-"`
 		IsEnded      bool                  `json:"isEnded"`
 
@@ -134,6 +134,7 @@ func CreateTask(fh *multipart.FileHeader, user string) (*Task, error) {
 		}
 
 		v.OutputFiles = append(v.OutputFiles, av1, hevc)
+		v.PublicUrl = filename + ".av1.mp4"
 
 	default:
 		return nil, errors.New("Unsupported file type :" + v.Mime)
@@ -158,26 +159,13 @@ func (t *Task) LoadProgress() error {
 		var e error
 		t.ProgressInfo, e = t.currentProgress()
 		if e != nil {
+			t.IsEnded = true
 			log.Println(e)
 			return e
 		}
+		t.IsEnded = t.ProgressInfo.Progress == ffmpegx.PROGRESS_END
 	}
 	return nil
-}
-
-func (t *Task) CheckIsEnded() bool {
-	if t.IsEnded {
-		return true
-	}
-	if strings.HasPrefix(t.Mime, "video/") {
-		info, e := t.currentProgress()
-		if e != nil {
-			log.Println(e)
-			return true
-		}
-		return info.Progress == ffmpegx.PROGRESS_END
-	}
-	return true
 }
 
 func (t *Task) Clean() {
