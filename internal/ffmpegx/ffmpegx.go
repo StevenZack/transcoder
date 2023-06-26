@@ -45,18 +45,33 @@ func FitConstraint(widthConstraint, heightConstraint int, w, h int) (int, int) {
 
 // ffmpeg -i l.jpg -q:v 31 a.webp
 func CompressImage(dst, filename string) error {
-	_, e := cmdToolkit.Run("ffmpeg", "-i", filename, "-q:v", "31", filename)
+	_, e := cmdToolkit.Run("ffmpeg", "-y", "-i", filename, "-q:v", "31", dst)
 	return e
 }
 
 // ffmpeg -i a.mp4 -ss 00:00:15 -frames:v 1 cover.webp
 func CreateCoverOfVideo(dst, filename string, w, h int) error {
-	_, e := cmdToolkit.Run("ffmpeg", "-i", filename, "-vf", fmt.Sprintf("scale=%dx%d", w, h), "-frames:v", "1", "-q:v", "31", dst)
+	_, e := cmdToolkit.Run("ffmpeg", "-y", "-i", filename, "-vf", fmt.Sprintf("scale=%dx%d", w, h), "-frames:v", "1", "-q:v", "31", dst)
 	return e
 }
 
+/*
+* ffmpeg -y -i a.mp4 -c:v libaom-av1 -vf scale=256x144,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 a.av1.mp4  -progress progress.txt &&
+ffmpeg -y -i a.mp4 -c:v libx265 -vf scale=640x360,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 a.hevc.mp4 -progress progress.txt
+*/
+func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, wAV1, hAV1, wHEVC, hHEVC int) (*exec.Cmd, error) {
+	cmd := exec.Command("ffmpeg", "-y", "-i", originalFilename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wAV1, hAV1), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstAV1, "&&",
+		"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dstHEVC,
+	)
+	e := cmd.Start()
+	if e != nil {
+		return nil, e
+	}
+	return cmd, nil
+}
+
 // ffmpeg -i a.mp4 -c:v libx265 -vf scale=640x360,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 out.hevc.mp4
-func CompressToHEVC(dst, filename, progressFile string, w, h int) (*exec.Cmd, error) {
+func compressToHEVC(dst, filename, progressFile string, w, h int) (*exec.Cmd, error) {
 	cmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", w, h), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dst)
 	e := cmd.Start()
 	if e != nil {
@@ -66,7 +81,7 @@ func CompressToHEVC(dst, filename, progressFile string, w, h int) (*exec.Cmd, er
 }
 
 // ffmpeg -i a.mp4 -c:v libaom-av1 -vf scale=256x144,fps=10 -c:a aac -ac 1 -b:a 24k  -crf 42 -b:v 0 out.av1.mp4
-func CompressToAV1(dst, filename, progressFile string, w, h int) (*exec.Cmd, error) {
+func compressToAV1(dst, filename, progressFile string, w, h int) (*exec.Cmd, error) {
 	cmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "libaom-av1", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", w, h), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "42", "-b:v", "0", "-progress", progressFile, dst)
 	e := cmd.Start()
 	if e != nil {
@@ -84,13 +99,13 @@ func ProbeVideoAuto(filename string) (*MediaInfo, error) {
 	}
 	defer os.Remove(oneFrame)
 
-	cover, e := probeMedia(oneFrame)
+	cover, e := ProbeMedia(oneFrame)
 	if e != nil {
 		log.Println(e)
 		return nil, e
 	}
 
-	info, e := probeMedia(filename)
+	info, e := ProbeMedia(filename)
 	if e != nil {
 		log.Println(e)
 		return nil, e
@@ -113,9 +128,10 @@ Side data:
 
 	displaymatrix: rotation of 90.00 degrees
 */
-func probeMedia(filename string) (*MediaInfo, error) {
+func ProbeMedia(filename string) (*MediaInfo, error) {
 	output, e := cmdToolkit.Run("ffprobe", filename)
 	if e != nil {
+		log.Println(e)
 		return nil, e
 	}
 	ss := strings.Split(output, "\n")
@@ -126,6 +142,7 @@ func probeMedia(filename string) (*MediaInfo, error) {
 	var width, height int
 	var dur int
 	for _, s := range ss {
+		s = strings.TrimSpace(s)
 		if width == 0 && strings.HasPrefix(s, "Stream") && strings.Contains(s, "Video:") {
 			s = strToolkit.SubAfter(s, "Video:", "")
 			for _, item := range strings.Split(s, ", ") {
@@ -155,13 +172,11 @@ func probeMedia(filename string) (*MediaInfo, error) {
 			s = strToolkit.SubBefore(s, ",", s)
 			s = strings.TrimSpace(s)
 			s = strToolkit.SubBeforeLast(s, ".", s)
-			if s == "N/A" {
-				return nil, errors.New("input " + filename + " is not video format")
-			}
-
-			dur, e = tools.ParseDurationSeconds(s)
-			if e != nil {
-				return nil, fmt.Errorf("parse duration '%s' failed:%w", s, e)
+			if s != "N/A" {
+				dur, e = tools.ParseDurationSeconds(s)
+				if e != nil {
+					return nil, fmt.Errorf("parse duration '%s' failed:%w", s, e)
+				}
 			}
 
 			continue

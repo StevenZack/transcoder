@@ -3,11 +3,11 @@ module github.com/StevenZack/transcoder
 go 1.20
 
 require (
-	github.com/StevenZack/tools v1.16.0
+	github.com/StevenZack/tools v1.16.2
 	github.com/gin-gonic/gin v1.9.1
 )
 
-replace github.com/StevenZack/tools => ../tools
+// replace github.com/StevenZack/tools => ../tools
 
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect

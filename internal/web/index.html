@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcoder</title>
+</head>
+<body>
+    <h1>Transcoder</h1>
+    <h4>Tasks</h4>
+    <a href="add.html">add</a>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Progress</th>
+            <th>Duration</th>
+            <th>Ext</th>
+            <th>Mime</th>
+            <th>Ended</th>
+            <th>CreateAt</th>
+        </tr>
+        {{range .Tasks}}
+        <tr>
+            <th>{{.Id}}</th>
+            <th>
+                <progress value="{{.ProgressInfo.OutTimeSeconds}}" max="{{.MediaInfo.DurationSeconds}}"></progress>
+            </th>
+            <th>
+                {{.MediaInfo.DurationSeconds}}
+            </th>
+            <th>{{.Ext}}</th>
+            <th>{{.Mime}}</th>
+            <th>{{.IsEnded}}</th>
+            <th>{{.CreateAt}}</th>
+        </tr>
+        {{end}}
+    </table>
+</body>
+</html>
