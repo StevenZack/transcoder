@@ -13,11 +13,13 @@ import (
 	"github.com/StevenZack/transcoder/internal/core"
 	"github.com/StevenZack/transcoder/internal/gx"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 var (
 	jwtSecret = flag.String("jwt-secret", "", "Use JWT authentication")
 	port      = flag.Int("p", 80, "port")
+	upgrader  = websocket.Upgrader{}
 )
 
 func init() {
@@ -39,6 +41,7 @@ func main() {
 	r.GET("/", func(ctx *gin.Context) {
 		ctx.Redirect(http.StatusFound, "/web/index.html")
 	})
+
 	//web
 	web := r.Group("web")
 	web.GET("index.html", webHome)
@@ -50,6 +53,7 @@ func main() {
 	api.GET("tasks/:id", getTask)
 	api.GET("tasks", getAllTasks)
 	api.DELETE("tasks/:id", deleteTask)
+	api.GET("tasks/:id/ws", ws)
 
 	r.Static("files", core.AppDir)
 
@@ -58,6 +62,24 @@ func main() {
 	if e != nil {
 		log.Fatal(e)
 	}
+}
+
+func ws(c *gin.Context) {
+	id := c.Param("id")
+	_, ok := core.TaskMap.Load(id)
+	if !ok {
+		gx.NotFound(c, id)
+		return
+	}
+
+	conn, e := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if e != nil {
+		log.Println(e)
+		gx.ServerError(c, e)
+		return
+	}
+	defer conn.Close()
+
 }
 
 func webHome(c *gin.Context) {

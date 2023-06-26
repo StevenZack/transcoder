@@ -25,15 +25,16 @@ type (
 		Ext    string `json:"ext"`
 		Mime   string `json:"mime"`
 
-		MediaInfo    *ffmpegx.MediaInfo    `json:"media_info"`
-		ProgressInfo *ffmpegx.ProgressInfo `json:"progress_info"`
+		MediaInfo    *ffmpegx.MediaInfo    `json:"mediaInfo"`
+		ProgressInfo *ffmpegx.ProgressInfo `json:"progressInfo"`
 		Cmd          **exec.Cmd            `json:"-"`
 		ProgressFile string                `json:"-"`
 		IsEnded      bool                  `json:"isEnded"`
 
-		PublicUrl   string   `json:"public_url"`   //
-		OutputFiles []string `json:"output_files"` // output urls
-		CreateAt    string   `json:"create_at"`
+		PublicUrl    string   `json:"publicUrl"`   //
+		OutputFiles  []string `json:"outputFiles"` // output urls
+		CreateAt     string   `json:"createAt"`
+		CreateAtUnix int64    `json:"createAtUnix"`
 	}
 )
 
