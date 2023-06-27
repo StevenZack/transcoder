@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"mime"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/StevenZack/tools/cmdToolkit"
@@ -14,6 +16,7 @@ import (
 	"github.com/StevenZack/transcoder/internal/core"
 	"github.com/StevenZack/transcoder/internal/gx"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 )
 
@@ -44,17 +47,21 @@ func main() {
 	})
 
 	//web
-	web := r.Group("web")
-	web.GET("index.html", webHome)
-	web.GET("add.html", func(c *gin.Context) { c.HTML(200, "add.html", nil) })
+	if gin.Mode() == gin.DebugMode {
+		web := r.Group("web")
+		web.GET("index.html", webHome)
+		web.GET("add.html", func(c *gin.Context) { c.HTML(200, "add.html", nil) })
+	}
 
 	// api
 	api := r.Group("api")
-	api.POST("tasks", postTasks)
-	api.GET("tasks/:id", getTask)
-	api.GET("tasks", getAllTasks)
-	api.DELETE("tasks/:id", deleteTask)
-	api.GET("tasks/:id/ws", ws)
+	api.POST("tasks", authMiddleware, postTasks)
+	api.GET("tasks/:id", authMiddleware, getTask)
+	if gin.Mode() == gin.DebugMode {
+		api.GET("tasks", authMiddleware, getAllTasks)
+	}
+	api.DELETE("tasks/:id", authMiddleware, deleteTask)
+	api.GET("tasks/:id/ws", authMiddleware, ws)
 
 	r.Static("files", core.AppDir)
 
@@ -70,6 +77,11 @@ func ws(c *gin.Context) {
 	task, ok := core.TaskMap.Load(id)
 	if !ok {
 		gx.NotFound(c, id)
+		return
+	}
+	sub := getSub(c)
+	if task.User != sub {
+		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
@@ -134,6 +146,12 @@ func deleteTask(c *gin.Context) {
 	if !ok {
 		return
 	}
+	sub := getSub(c)
+	if task.User != sub {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	task.Clean()
 	core.TaskMap.Delete(id)
 }
@@ -161,7 +179,7 @@ func postTasks(c *gin.Context) {
 		mime = strToolkit.SubBefore(mime, "/", mime)
 		switch mime {
 		case "image", "video":
-			task, e := core.CreateTask(fh, "")
+			task, e := core.CreateTask(fh, getSub(c))
 			if e != nil {
 				log.Println(e)
 				gx.ServerError(c, e)
@@ -187,5 +205,63 @@ func getTask(c *gin.Context) {
 		gx.NotFound(c, id)
 		return
 	}
+	if v.User != getSub(c) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	c.JSON(200, v)
+}
+func getSub(c *gin.Context) string {
+	return c.Value("sub").(string)
+}
+func authMiddleware(c *gin.Context) {
+	if jwtSecret == nil {
+		return
+	}
+
+	accessToken := c.GetHeader("Authorization")
+	if accessToken == "" {
+		accessToken = c.GetHeader("authorization")
+		if accessToken == "" {
+			c.AbortWithError(http.StatusUnauthorized, nil)
+			return
+		}
+	}
+
+	sub, e := parseAccessToken(accessToken)
+	if e != nil {
+		c.AbortWithError(http.StatusUnauthorized, e)
+		return
+	}
+	c.Set("sub", sub)
+	c.Next()
+}
+
+func parseAccessToken(accessToken string) (string, error) {
+	t, e := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
+		return []byte(*jwtSecret), nil
+	})
+	if e != nil {
+		if strings.Contains(e.Error(), jwt.ErrTokenExpired.Error()) {
+			return "", jwt.ErrTokenExpired
+		}
+		return "", e
+	}
+	exp, e := t.Claims.GetExpirationTime()
+	if e != nil {
+		return "", e
+	}
+	if exp.Before(time.Now()) {
+		return "", fmt.Errorf("token expired")
+	}
+	uid, e := t.Claims.GetSubject()
+	if e != nil {
+		return "", e
+	}
+	if !t.Valid {
+		return "", e
+	}
+
+	return uid, nil
 }
