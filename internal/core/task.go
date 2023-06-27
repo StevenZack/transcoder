@@ -20,7 +20,7 @@ import (
 type (
 	Task struct {
 		Id     string `json:"id"`
-		User   string `json:"user"`
+		User   string `json:"-"`
 		Origin string `json:"origin"`
 		Ext    string `json:"ext"`
 		Mime   string `json:"mime"`
@@ -170,6 +170,12 @@ func (t *Task) LoadProgress() error {
 }
 
 func (t *Task) Clean() {
+	if t.Cmd != nil {
+		cmd := *t.Cmd
+		if cmd != nil {
+			cmd.Process.Kill()
+		}
+	}
 	os.Remove(t.Origin)
 	if t.ProgressFile != "" {
 		os.Remove(t.ProgressFile)

@@ -18,8 +18,9 @@ import (
 
 type (
 	MediaInfo struct {
-		Width, Height   int
-		DurationSeconds int
+		Width           int `json:"width"`
+		Height          int `json:"height"`
+		DurationSeconds int `json:"durationSeconds"`
 	}
 )
 
@@ -80,7 +81,7 @@ func CompressToAV1_HEVC(dstAV1, dstHEVC, originalFilename, progressFile string, 
 		}
 
 		cmd = exec.Command(
-			"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "36", "-b:v", "0", "-progress", progressFile, dstHEVC,
+			"ffmpeg", "-y", "-i", originalFilename, "-c:v", "libx265", "-vf", fmt.Sprintf("scale=%dx%d,fps=10", wHEVC, hHEVC), "-c:a", "aac", "-ac", "1", "-b:a", "24k", "-crf", "32", "-b:v", "0", "-progress", progressFile, dstHEVC,
 		)
 		log.Println(cmd.String())
 

@@ -25,8 +25,8 @@ progress=end
 */
 type ProgressInfo struct {
 	Frame          int    `json:"frame"`
-	OutTime        string `json:"out_time"`
-	OutTimeSeconds int    `json:"out_time_seconds"`
+	OutTime        string `json:"outTime"`
+	OutTimeSeconds int    `json:"outTimeSeconds"`
 	Speed          string `json:"speed"`
 	Progress       string `json:"progress"` // continue|end
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/StevenZack/tools/cmdToolkit"
 	"github.com/StevenZack/tools/strToolkit"
@@ -66,7 +67,7 @@ func main() {
 
 func ws(c *gin.Context) {
 	id := c.Param("id")
-	_, ok := core.TaskMap.Load(id)
+	task, ok := core.TaskMap.Load(id)
 	if !ok {
 		gx.NotFound(c, id)
 		return
@@ -80,6 +81,36 @@ func ws(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	active := true
+	go func() {
+		for {
+			_, _, e := conn.ReadMessage()
+			if e != nil {
+				break
+			}
+		}
+		active = false
+		task.Clean()
+		core.TaskMap.Delete(id)
+	}()
+	task.LoadProgress()
+	for active {
+		if task.IsEnded {
+			time.Sleep(time.Second * 30)
+		} else {
+			time.Sleep(time.Second * 2)
+		}
+		task, ok = core.TaskMap.Load(id)
+		if !ok {
+			gx.NotFound(c, id)
+			return
+		}
+		task.LoadProgress()
+		e = conn.WriteJSON(task)
+		if e != nil {
+			break
+		}
+	}
 }
 
 func webHome(c *gin.Context) {
@@ -99,6 +130,11 @@ func webHome(c *gin.Context) {
 }
 func deleteTask(c *gin.Context) {
 	id := c.Param("id")
+	task, ok := core.TaskMap.Load(id)
+	if !ok {
+		return
+	}
+	task.Clean()
 	core.TaskMap.Delete(id)
 }
 func getAllTasks(c *gin.Context) {

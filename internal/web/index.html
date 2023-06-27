@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transcoder</title>
 </head>
+
 <body>
     <h1>Transcoder</h1>
     <h4>Tasks</h4>
@@ -16,13 +18,13 @@
             <th>Duration</th>
             <th>Ext</th>
             <th>Mime</th>
-            <th>Ended</th>
+            <th>End</th>
             <th>CreateAt</th>
             <th>URL</th>
         </tr>
         {{range .Tasks}}
         <tr>
-            <th>{{.Id}}</th>
+            <th class="id-col">{{.Id}}</th>
             <th>
                 <progress value="{{.ProgressInfo.OutTimeSeconds}}" max="{{.MediaInfo.DurationSeconds}}"></progress>
             </th>
@@ -39,5 +41,35 @@
         </tr>
         {{end}}
     </table>
+    <script defer>
+        var elems = document.getElementsByClassName('id-col');
+        for (var i = 0; i < elems.length; i++) {
+            var elem = elems[i];
+            var id = elem.innerHTML;
+            console.log(id);
+            var ws = new WebSocket('ws://' + location.host + '/api/tasks/' + id + '/ws');
+            ws.onmessage = function (e) {
+                var data = JSON.parse(e.data);
+                var pro = elem.parentElement.children[1].children[0];
+                var max = data.mediaInfo.durationSeconds;
+                var value = data.progressInfo.outTimeSeconds;
+                if (value >= max) {
+                    pro.removeAttribute('value');
+                } else {
+                    pro.value = value;
+                }
+            }
+            ws.onerror = function (e) {
+                console.error(id + ':' + e.data);
+            }
+            ws.onopen = function (e) {
+                console.log('ws open:' + id);
+            }
+            ws.onclose = function () {
+                console.log('ws closed:' + id);
+            }
+        }
+    </script>
 </body>
+
 </html>
