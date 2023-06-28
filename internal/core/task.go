@@ -38,6 +38,10 @@ type (
 	}
 )
 
+const (
+	PUBLIC_PREFIX = "public/"
+)
+
 var (
 	TaskMap = new(tools.Map[string, Task])
 	AppDir  = filepath.Join(os.TempDir(), PACKAGE_NAME)
@@ -96,7 +100,7 @@ func CreateTask(fh *multipart.FileHeader, user string) (*Task, error) {
 		}
 		v.OutputFiles = append(v.OutputFiles, filename+".webp")
 
-		v.PublicUrl = filename + ".avif"
+		v.PublicUrl = PUBLIC_PREFIX + filename + ".avif"
 
 		// delete v.Origin
 		// e = os.Remove(v.Origin)
@@ -135,7 +139,7 @@ func CreateTask(fh *multipart.FileHeader, user string) (*Task, error) {
 		}
 
 		v.OutputFiles = append(v.OutputFiles, av1, hevc)
-		v.PublicUrl = filename + ".av1.mp4"
+		v.PublicUrl = PUBLIC_PREFIX + filename + ".av1.mp4"
 
 	default:
 		return nil, errors.New("Unsupported file type :" + v.Mime)

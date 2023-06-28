@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/StevenZack/tools v1.16.2
+	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/gorilla/websocket v1.5.0

@@ -15,6 +15,8 @@ import (
 	"github.com/StevenZack/tools/strToolkit"
 	"github.com/StevenZack/transcoder/internal/core"
 	"github.com/StevenZack/transcoder/internal/gx"
+	"github.com/StevenZack/transcoder/internal/vars"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
@@ -22,17 +24,18 @@ import (
 
 var (
 	jwtSecret = flag.String("jwt-secret", "", "Use JWT authentication")
+	origins   = flag.String("origins", "*", "Allowed origins, split by [,]")
 	port      = flag.Int("p", 80, "port")
 	upgrader  = websocket.Upgrader{}
 )
 
 func init() {
 	log.SetFlags(log.Lshortfile)
+	gin.SetMode(vars.Mode)
 }
 
 func main() {
 	flag.Parse()
-
 	out, e := cmdToolkit.Run("ffmpeg", "-version")
 	if e != nil {
 		log.Println(e)
@@ -41,13 +44,18 @@ func main() {
 	println(out)
 
 	r := gin.Default()
-	r.LoadHTMLGlob("internal/web/*")
-	r.GET("/", func(ctx *gin.Context) {
-		ctx.Redirect(http.StatusFound, "/web/index.html")
-	})
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     strings.Split(*origins, ","),
+		AllowCredentials: true,
+		AllowHeaders:     []string{"authorization", "content-type"},
+	}))
 
 	//web
 	if gin.Mode() == gin.DebugMode {
+		r.LoadHTMLGlob("internal/web/*")
+		r.GET("/", func(ctx *gin.Context) {
+			ctx.Redirect(http.StatusFound, "/web/index.html")
+		})
 		web := r.Group("web")
 		web.GET("index.html", webHome)
 		web.GET("add.html", func(c *gin.Context) { c.HTML(200, "add.html", nil) })
@@ -63,7 +71,7 @@ func main() {
 	api.DELETE("tasks/:id", authMiddleware, deleteTask)
 	api.GET("tasks/:id/ws", authMiddleware, ws)
 
-	r.Static("files", core.AppDir)
+	r.Static(core.PUBLIC_PREFIX, core.AppDir)
 
 	println("started on http://localhost:" + strconv.Itoa(*port))
 	e = r.Run(":" + strconv.Itoa(*port))
@@ -224,8 +232,11 @@ func authMiddleware(c *gin.Context) {
 	if accessToken == "" {
 		accessToken = c.GetHeader("authorization")
 		if accessToken == "" {
-			c.AbortWithError(http.StatusUnauthorized, nil)
-			return
+			accessToken = c.Query("token")
+			if accessToken == "" {
+				c.AbortWithError(http.StatusUnauthorized, nil)
+				return
+			}
 		}
 	}
 
