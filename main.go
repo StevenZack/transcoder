@@ -26,7 +26,7 @@ var (
 	jwtSecret = flag.String("jwt-secret", "", "Use JWT authentication")
 	origins   = flag.String("origins", "*", "Allowed origins, split by [,]")
 	port      = flag.Int("p", 80, "port")
-	upgrader  = websocket.Upgrader{}
+	upgrader  websocket.Upgrader
 )
 
 func init() {
@@ -44,11 +44,23 @@ func main() {
 	println(out)
 
 	r := gin.Default()
-	r.Use(cors.New(cors.Config{
+	corsConfig := cors.Config{
 		AllowOrigins:     strings.Split(*origins, ","),
 		AllowCredentials: true,
 		AllowHeaders:     []string{"authorization", "content-type"},
-	}))
+	}
+	r.Use(cors.New(corsConfig))
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			for _, v := range corsConfig.AllowOrigins {
+				if v == "*" || v == origin {
+					return true
+				}
+			}
+			return false
+		},
+	}
 
 	//web
 	if gin.Mode() == gin.DebugMode {
